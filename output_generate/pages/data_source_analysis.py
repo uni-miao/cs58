@@ -118,6 +118,67 @@ if os.path.exists(paper_level_summary_path):
     except:
         pass
 
+# Load temporal mentions dataset for veracity timeline sampling
+temporal_mentions_path = os.path.join(datasets_dir, "temporal_mentions_joined.csv")
+temporal_mentions_df = None
+if os.path.exists(temporal_mentions_path):
+    try:
+        temporal_mentions_df = pd.read_csv(temporal_mentions_path)
+        for date_col in ["OriginalDate_iso", "RetractionDate_iso", "MentionDate_iso"]:
+            if date_col in temporal_mentions_df.columns:
+                temporal_mentions_df[date_col] = pd.to_datetime(
+                    temporal_mentions_df[date_col], errors="coerce"
+                )
+    except Exception as exc:
+        st.sidebar.warning(
+            f"Unable to load temporal_mentions_joined.csv: {exc}"[:200]
+        )
+        temporal_mentions_df = None
+
+# Initialize session state for temporal veracity sampling
+if "temporal_veracity_true_sample" not in st.session_state:
+    st.session_state["temporal_veracity_true_sample"] = None
+if "temporal_veracity_false_sample" not in st.session_state:
+    st.session_state["temporal_veracity_false_sample"] = None
+
+# Sidebar controls for temporal veracity timeline sampling
+st.sidebar.markdown("---")
+st.sidebar.subheader("Temporal Veracity (Timeline)")
+
+TRUE_LABEL_OPTIONS = ["ANY", "O_BEFORE", "R_AFTER"]
+FALSE_LABEL_OPTIONS = [
+    "ANY",
+    "O_AFTER_COMENTION",
+    "O_AFTER_EXCL_NORM",
+    "O_AFTER_EXCL_ABNORM",
+]
+TRUE_LABEL_SET = TRUE_LABEL_OPTIONS[1:]
+FALSE_LABEL_SET = FALSE_LABEL_OPTIONS[1:]
+
+temporal_true_label = st.sidebar.selectbox(
+    "TRUE Label",
+    TRUE_LABEL_OPTIONS,
+    index=0,
+    key="temporal_true_label_filter",
+)
+
+temporal_false_label = st.sidebar.selectbox(
+    "FALSE Label",
+    FALSE_LABEL_OPTIONS,
+    index=0,
+    key="temporal_false_label_filter",
+)
+
+temporal_seed_text = st.sidebar.text_input(
+    "Seed (optional, integer)",
+    value="",
+    key="temporal_seed_text",
+)
+
+temporal_button_col1, temporal_button_col2 = st.sidebar.columns(2)
+trigger_sample_with_seed = temporal_button_col1.button("Sample with Seed")
+trigger_sample_random = temporal_button_col2.button("Sample Random")
+
 # Load data
 if should_load:
     try:
@@ -170,9 +231,9 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
     is_paper_domain_pairs = 'Domain' in df_results.columns and 'Has_Original' in df_results.columns
     
     # Create tabs for Data Source Analysis
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "Overview", "Domain Analysis", "Paper-Domain Relationships", 
-        "Overlap Analysis", "Data Table"
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "Overview", "Domain Analysis", "Paper-Domain Relationships",
+        "Overlap Analysis", "Data Table", "Temporal Veracity (Timeline)"
     ])
     
     with tab1:
@@ -692,17 +753,17 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
     
     with tab5:
         st.header("Data Table")
-        
+
         # Show current dataset
         st.subheader("Current Dataset")
         st.dataframe(df_results, use_container_width=True, height=400)
-        
+
         # Option to load paper_domain_pairs
         if df_paper_domain_pairs is not None and not is_paper_domain_pairs:
             st.subheader("Paper-Domain Pairs Dataset")
             with st.expander("View Paper-Domain Pairs Data", expanded=False):
                 st.dataframe(df_paper_domain_pairs, use_container_width=True, height=300)
-                
+
         # Download option
         csv = df_results.to_csv(index=False)
         st.download_button(
@@ -711,6 +772,227 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
             file_name="data_source_analysis.csv",
             mime="text/csv"
         )
+
+    with tab6:
+        st.header("Temporal Veracity (Timeline)")
+        st.write(
+            "Draw paired TRUE and FALSE news samples to inspect how publication, retraction, "
+            "and mention dates align across the lifecycle of a research output."
+        )
+
+        if temporal_mentions_df is None:
+            st.warning(
+                "The temporal_mentions_joined.csv dataset is not available. Place it in the datasets "
+                "directory to enable timeline sampling."
+            )
+        elif "label" not in temporal_mentions_df.columns:
+            st.error(
+                "The temporal mentions dataset is missing the required 'label' column. "
+                "Please verify the CSV schema."
+            )
+        else:
+            true_labels_filter = TRUE_LABEL_SET if temporal_true_label == "ANY" else [temporal_true_label]
+            false_labels_filter = (
+                FALSE_LABEL_SET if temporal_false_label == "ANY" else [temporal_false_label]
+            )
+
+            if trigger_sample_with_seed or trigger_sample_random:
+                seed_value = None
+                if trigger_sample_with_seed:
+                    seed_text = temporal_seed_text.strip()
+                    if seed_text:
+                        try:
+                            seed_value = int(seed_text)
+                        except ValueError:
+                            st.warning("Seed must be an integer. Using random sampling instead.")
+                            seed_value = None
+                    else:
+                        st.info("Enter a seed value to reproduce the same samples. Using random sampling instead.")
+
+                true_pool = temporal_mentions_df[
+                    temporal_mentions_df["label"].isin(true_labels_filter)
+                ]
+                false_pool = temporal_mentions_df[
+                    temporal_mentions_df["label"].isin(false_labels_filter)
+                ]
+
+                pool_errors = []
+                if true_pool.empty:
+                    pool_errors.append("TRUE pool is empty for the selected filter.")
+                if false_pool.empty:
+                    pool_errors.append("FALSE pool is empty for the selected filter.")
+
+                if pool_errors:
+                    for msg in pool_errors:
+                        st.warning(msg)
+                else:
+                    true_random_state = seed_value if seed_value is not None else None
+                    false_random_state = (
+                        seed_value + 1 if seed_value is not None else None
+                    )
+
+                    st.session_state["temporal_veracity_true_sample"] = (
+                        true_pool.sample(n=1, random_state=true_random_state)
+                        .iloc[0]
+                        .copy()
+                    )
+                    st.session_state["temporal_veracity_false_sample"] = (
+                        false_pool.sample(n=1, random_state=false_random_state)
+                        .iloc[0]
+                        .copy()
+                    )
+                    st.success("Sampled 1 TRUE and 1 FALSE item.")
+
+            true_sample = st.session_state.get("temporal_veracity_true_sample")
+            false_sample = st.session_state.get("temporal_veracity_false_sample")
+
+            if (
+                true_sample is not None
+                and true_sample.get("label") not in true_labels_filter
+            ):
+                true_sample = None
+                st.session_state["temporal_veracity_true_sample"] = None
+
+            if (
+                false_sample is not None
+                and false_sample.get("label") not in false_labels_filter
+            ):
+                false_sample = None
+                st.session_state["temporal_veracity_false_sample"] = None
+
+            st.caption(
+                "Filters — TRUE: {} | FALSE: {}".format(
+                    ", ".join(true_labels_filter), ", ".join(false_labels_filter)
+                )
+            )
+
+            def format_field(value):
+                if isinstance(value, pd.Timestamp):
+                    if pd.isna(value):
+                        return "—"
+                    return value.strftime("%Y-%m-%d")
+                if value is None:
+                    return "—"
+                if pd.isna(value):
+                    return "—"
+                value_str = str(value).strip()
+                return value_str if value_str else "—"
+
+            def build_timeline(sample_series):
+                event_fields = [
+                    ("Original Publication", "OriginalDate_iso"),
+                    ("Retraction", "RetractionDate_iso"),
+                    ("Mention", "MentionDate_iso"),
+                ]
+                timeline_points = []
+                for event_name, column in event_fields:
+                    if column in sample_series.index:
+                        value = sample_series.get(column)
+                        if isinstance(value, pd.Timestamp):
+                            dt_value = value
+                        else:
+                            dt_value = pd.to_datetime(value, errors="coerce")
+                        if pd.notna(dt_value):
+                            timeline_points.append((event_name, dt_value))
+
+                if not timeline_points:
+                    return None, []
+
+                timeline_points.sort(key=lambda item: item[1])
+                y_positions = [0] * len(timeline_points)
+                mode = "markers" if len(timeline_points) == 1 else "lines+markers"
+                color_map = {
+                    "Original Publication": "#1f77b4",
+                    "Retraction": "#ff7f0e",
+                    "Mention": "#2ca02c",
+                }
+                marker_colors = [
+                    color_map.get(point[0], "#636EFA") for point in timeline_points
+                ]
+
+                fig = go.Figure()
+                fig.add_trace(
+                    go.Scatter(
+                        x=[point[1] for point in timeline_points],
+                        y=y_positions,
+                        mode=mode,
+                        marker=dict(size=12, color=marker_colors),
+                        line=dict(color="#636EFA"),
+                        text=[point[0] for point in timeline_points],
+                        hovertemplate="%{text}<br>%{x|%Y-%m-%d}<extra></extra>",
+                    )
+                )
+                fig.update_layout(
+                    title="Timeline",
+                    showlegend=False,
+                    xaxis_title="Date",
+                    yaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
+                    margin=dict(l=40, r=20, t=60, b=40),
+                )
+                return fig, timeline_points
+
+            def render_sample(column, sample_series, label_name):
+                with column:
+                    st.subheader(label_name)
+                    if sample_series is None:
+                        st.info(
+                            "Use the sampling buttons in the sidebar to populate this sample."
+                        )
+                        return
+
+                    st.markdown("**Basic Info**")
+                    st.markdown(f"**Title:** {format_field(sample_series.get('Title'))}")
+                    st.markdown(f"**Paper Record ID:** {format_field(sample_series.get('Record ID'))}")
+                    st.markdown(
+                        f"**Mention Title:** {format_field(sample_series.get('Mention Title'))}"
+                    )
+                    st.markdown(
+                        f"**Mention Date:** {format_field(sample_series.get('MentionDate_iso'))}"
+                    )
+                    mention_url = format_field(sample_series.get('Mention URL'))
+                    if mention_url != "—" and mention_url.lower().startswith("http"):
+                        st.markdown(f"**Mention URL:** [{mention_url}]({mention_url})")
+                    else:
+                        st.markdown("**Mention URL:** —")
+
+                    st.markdown("**Paper Identifiers & Dates**")
+                    st.markdown(
+                        f"**Original DOI:** {format_field(sample_series.get('OriginalPaperDOI'))}"
+                    )
+                    st.markdown(
+                        f"**Original Date:** {format_field(sample_series.get('OriginalDate_iso'))}"
+                    )
+                    st.markdown(
+                        f"**Retraction DOI:** {format_field(sample_series.get('RetractionDOI'))}"
+                    )
+                    st.markdown(
+                        f"**Retraction Date:** {format_field(sample_series.get('RetractionDate_iso'))}"
+                    )
+
+                    timeline_fig, timeline_points = build_timeline(sample_series)
+                    if timeline_fig:
+                        st.plotly_chart(timeline_fig, use_container_width=True)
+                        if timeline_points:
+                            st.markdown("**Event Order**")
+                            for event_name, point in timeline_points:
+                                st.markdown(
+                                    f"- {event_name}: {point.strftime('%Y-%m-%d')}"
+                                )
+                    else:
+                        st.info("No temporal events with valid dates for this sample.")
+
+                    st.markdown("**Label Metadata**")
+                    st.markdown(f"**Label:** {format_field(sample_series.get('label'))}")
+                    st.markdown(
+                        f"**Mention Source:** {format_field(sample_series.get('mention_source'))}"
+                    )
+                    st.markdown(
+                        f"**Outlet or Author:** {format_field(sample_series.get('Outlet or Author'))}"
+                    )
+
+            col_true, col_false = st.columns(2)
+            render_sample(col_true, true_sample, "TRUE Sample")
+            render_sample(col_false, false_sample, "FALSE Sample")
 
 else:
     st.info("Click 'Load Data' in the sidebar to start analyzing your data.")
