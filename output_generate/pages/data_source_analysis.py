@@ -118,6 +118,67 @@ if os.path.exists(paper_level_summary_path):
     except:
         pass
 
+# Load temporal mentions dataset for veracity timeline sampling
+temporal_mentions_path = os.path.join(datasets_dir, "temporal_mentions_joined.csv")
+temporal_mentions_df = None
+if os.path.exists(temporal_mentions_path):
+    try:
+        temporal_mentions_df = pd.read_csv(temporal_mentions_path)
+        for date_col in ["OriginalDate_iso", "RetractionDate_iso", "MentionDate_iso"]:
+            if date_col in temporal_mentions_df.columns:
+                temporal_mentions_df[date_col] = pd.to_datetime(
+                    temporal_mentions_df[date_col], errors="coerce"
+                )
+    except Exception as exc:
+        st.sidebar.warning(
+            f"Unable to load temporal_mentions_joined.csv: {exc}"[:200]
+        )
+        temporal_mentions_df = None
+
+# Initialize session state for temporal veracity sampling
+if "temporal_veracity_true_sample" not in st.session_state:
+    st.session_state["temporal_veracity_true_sample"] = None
+if "temporal_veracity_false_sample" not in st.session_state:
+    st.session_state["temporal_veracity_false_sample"] = None
+
+# Sidebar controls for temporal veracity timeline sampling
+st.sidebar.markdown("---")
+st.sidebar.subheader("Temporal Veracity (Timeline)")
+
+TRUE_LABEL_OPTIONS = ["ANY", "O_BEFORE", "R_AFTER"]
+FALSE_LABEL_OPTIONS = [
+    "ANY",
+    "O_AFTER_COMENTION",
+    "O_AFTER_EXCL_NORM",
+    "O_AFTER_EXCL_ABNORM",
+]
+TRUE_LABEL_SET = TRUE_LABEL_OPTIONS[1:]
+FALSE_LABEL_SET = FALSE_LABEL_OPTIONS[1:]
+
+temporal_true_label = st.sidebar.selectbox(
+    "TRUE Label",
+    TRUE_LABEL_OPTIONS,
+    index=0,
+    key="temporal_true_label_filter",
+)
+
+temporal_false_label = st.sidebar.selectbox(
+    "FALSE Label",
+    FALSE_LABEL_OPTIONS,
+    index=0,
+    key="temporal_false_label_filter",
+)
+
+temporal_seed_text = st.sidebar.text_input(
+    "Seed (optional, integer)",
+    value="",
+    key="temporal_seed_text",
+)
+
+temporal_button_col1, temporal_button_col2 = st.sidebar.columns(2)
+trigger_sample_with_seed = temporal_button_col1.button("Sample with Seed")
+trigger_sample_random = temporal_button_col2.button("Sample Random")
+
 # Load data
 if should_load:
     try:
@@ -172,7 +233,7 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
     # Create tabs for Data Source Analysis
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Overview", "Domain Analysis", "Paper-Domain Relationships",
-        "Overlap Analysis", "Data Table", "Veracity Time Series"
+        "Overlap Analysis", "Data Table", "Temporal Veracity (Timeline)"
     ])
     
     with tab1:
@@ -713,179 +774,216 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
         )
 
     with tab6:
-        st.header("Temporal Real vs Fake News Comparison")
+        st.header("Temporal Veracity (Timeline)")
         st.write(
-            "Analyze how real and fake news samples evolve over time by selecting a date "
-            "column and a veracity label column from the loaded dataset."
+            "Draw paired TRUE and FALSE news samples to inspect how publication, retraction, "
+            "and mention dates align across the lifecycle of a research output."
         )
 
-        working_df = df_results.copy()
-
-        # Identify potential date columns and convert parsable ones to datetime
-        potential_date_columns = []
-        for col in working_df.columns:
-            col_lower = col.lower()
-            if pd.api.types.is_datetime64_any_dtype(working_df[col]):
-                potential_date_columns.append(col)
-                continue
-            if any(keyword in col_lower for keyword in ["date", "time", "timestamp", "year"]):
-                parsed_series = pd.to_datetime(working_df[col], errors="coerce")
-                if parsed_series.notna().sum() > 0:
-                    working_df[col] = parsed_series
-                    potential_date_columns.append(col)
-
-        if not potential_date_columns:
-            st.info(
-                "No date-like columns detected automatically. Add a date column to the dataset to "
-                "unlock temporal comparisons."
+        if temporal_mentions_df is None:
+            st.warning(
+                "The temporal_mentions_joined.csv dataset is not available. Place it in the datasets "
+                "directory to enable timeline sampling."
             )
-            selected_date_col = None
+        elif "label" not in temporal_mentions_df.columns:
+            st.error(
+                "The temporal mentions dataset is missing the required 'label' column. "
+                "Please verify the CSV schema."
+            )
         else:
-            selected_date_col = st.selectbox(
-                "Select the date or time column", potential_date_columns, index=0
+            true_labels_filter = TRUE_LABEL_SET if temporal_true_label == "ANY" else [temporal_true_label]
+            false_labels_filter = (
+                FALSE_LABEL_SET if temporal_false_label == "ANY" else [temporal_false_label]
             )
 
-        # Identify candidate columns that can represent veracity labels
-        veracity_label_keywords = [
-            "veracity", "label", "truth", "fake", "real", "type", "category",
-            "source", "status", "retraction", "original"
-        ]
-        potential_label_columns = []
-        for col in working_df.columns:
-            if pd.api.types.is_categorical_dtype(working_df[col]) or working_df[col].dtype == object:
-                unique_values = working_df[col].dropna().unique()
-                if len(unique_values) <= 30:
-                    potential_label_columns.append(col)
-                elif any(keyword in col.lower() for keyword in veracity_label_keywords):
-                    potential_label_columns.append(col)
-
-        if not potential_label_columns:
-            st.info(
-                "No categorical columns suitable for veracity labels were detected. "
-                "Consider adding a column that distinguishes real and fake news samples."
-            )
-            selected_label_col = None
-        else:
-            selected_label_col = st.selectbox(
-                "Select the veracity label column", potential_label_columns, index=0
-            )
-
-        if selected_date_col and selected_label_col:
-            filtered_df = working_df[[selected_date_col, selected_label_col]].dropna(subset=[selected_date_col])
-
-            if filtered_df.empty:
-                st.warning("No records available after filtering for the selected columns.")
-            else:
-                unique_values = filtered_df[selected_label_col].dropna().unique().tolist()
-                value_display_map = {str(value): value for value in unique_values}
-
-                def infer_default_bucket(value: str) -> str:
-                    lower_value = value.lower()
-                    real_keywords = ["real", "true", "original", "verified", "authentic", "legit"]
-                    fake_keywords = [
-                        "fake", "false", "rumor", "misinfo", "disinfo", "hoax", "retraction",
-                        "debunked"
-                    ]
-                    if any(keyword in lower_value for keyword in real_keywords):
-                        return "Real"
-                    if any(keyword in lower_value for keyword in fake_keywords):
-                        return "Fake"
-                    return "Other"
-
-                default_real = [
-                    display for display in value_display_map
-                    if infer_default_bucket(display) == "Real"
-                ]
-                default_fake = [
-                    display for display in value_display_map
-                    if infer_default_bucket(display) == "Fake"
-                ]
-
-                col_real, col_fake = st.columns(2)
-                selected_real_display = col_real.multiselect(
-                    "Values representing REAL news", list(value_display_map.keys()), default=default_real
-                )
-                selected_fake_display = col_fake.multiselect(
-                    "Values representing FAKE news", list(value_display_map.keys()), default=default_fake
-                )
-
-                selected_real_values = [value_display_map[val] for val in selected_real_display]
-                selected_fake_values = [value_display_map[val] for val in selected_fake_display]
-
-                if not selected_real_values and not selected_fake_values:
-                    st.warning(
-                        "Select at least one value for either the real or fake news category to build the comparison."
-                    )
-                else:
-                    filtered_df = filtered_df[filtered_df[selected_label_col].isin(
-                        selected_real_values + selected_fake_values
-                    )]
-
-                    if filtered_df.empty:
-                        st.warning("No data matches the selected real/fake categories.")
+            if trigger_sample_with_seed or trigger_sample_random:
+                seed_value = None
+                if trigger_sample_with_seed:
+                    seed_text = temporal_seed_text.strip()
+                    if seed_text:
+                        try:
+                            seed_value = int(seed_text)
+                        except ValueError:
+                            st.warning("Seed must be an integer. Using random sampling instead.")
+                            seed_value = None
                     else:
-                        freq_label = st.selectbox(
-                            "Aggregation frequency",
-                            ["Weekly", "Monthly", "Quarterly", "Yearly", "Daily"],
-                            index=1
-                        )
-                        freq_map = {
-                            "Daily": "D",
-                            "Weekly": "W",
-                            "Monthly": "M",
-                            "Quarterly": "Q",
-                            "Yearly": "Y"
-                        }
+                        st.info("Enter a seed value to reproduce the same samples. Using random sampling instead.")
 
-                        filtered_df = filtered_df.copy()
-                        filtered_df[selected_date_col] = pd.to_datetime(
-                            filtered_df[selected_date_col], errors="coerce"
-                        )
-                        filtered_df = filtered_df.dropna(subset=[selected_date_col])
+                true_pool = temporal_mentions_df[
+                    temporal_mentions_df["label"].isin(true_labels_filter)
+                ]
+                false_pool = temporal_mentions_df[
+                    temporal_mentions_df["label"].isin(false_labels_filter)
+                ]
 
-                        if filtered_df.empty:
-                            st.warning("No valid date values remain after parsing the selected column.")
+                pool_errors = []
+                if true_pool.empty:
+                    pool_errors.append("TRUE pool is empty for the selected filter.")
+                if false_pool.empty:
+                    pool_errors.append("FALSE pool is empty for the selected filter.")
+
+                if pool_errors:
+                    for msg in pool_errors:
+                        st.warning(msg)
+                else:
+                    true_random_state = seed_value if seed_value is not None else None
+                    false_random_state = (
+                        seed_value + 1 if seed_value is not None else None
+                    )
+
+                    st.session_state["temporal_veracity_true_sample"] = (
+                        true_pool.sample(n=1, random_state=true_random_state)
+                        .iloc[0]
+                        .copy()
+                    )
+                    st.session_state["temporal_veracity_false_sample"] = (
+                        false_pool.sample(n=1, random_state=false_random_state)
+                        .iloc[0]
+                        .copy()
+                    )
+                    st.success("Sampled 1 TRUE and 1 FALSE item.")
+
+            true_sample = st.session_state.get("temporal_veracity_true_sample")
+            false_sample = st.session_state.get("temporal_veracity_false_sample")
+
+            if (
+                true_sample is not None
+                and true_sample.get("label") not in true_labels_filter
+            ):
+                true_sample = None
+                st.session_state["temporal_veracity_true_sample"] = None
+
+            if (
+                false_sample is not None
+                and false_sample.get("label") not in false_labels_filter
+            ):
+                false_sample = None
+                st.session_state["temporal_veracity_false_sample"] = None
+
+            st.caption(
+                "Filters — TRUE: {} | FALSE: {}".format(
+                    ", ".join(true_labels_filter), ", ".join(false_labels_filter)
+                )
+            )
+
+            def format_field(value):
+                if isinstance(value, pd.Timestamp):
+                    if pd.isna(value):
+                        return "—"
+                    return value.strftime("%Y-%m-%d")
+                if value is None:
+                    return "—"
+                if pd.isna(value):
+                    return "—"
+                value_str = str(value).strip()
+                return value_str if value_str else "—"
+
+            def build_timeline(sample_series):
+                event_fields = [
+                    ("Original Publication", "OriginalDate_iso"),
+                    ("Retraction", "RetractionDate_iso"),
+                    ("Mention", "MentionDate_iso"),
+                ]
+                timeline_points = []
+                for event_name, column in event_fields:
+                    if column in sample_series.index:
+                        value = sample_series.get(column)
+                        if isinstance(value, pd.Timestamp):
+                            dt_value = value
                         else:
-                            filtered_df["veracity_group"] = filtered_df[selected_label_col].apply(
-                                lambda val: "Real News" if val in selected_real_values else "Fake News"
-                            )
+                            dt_value = pd.to_datetime(value, errors="coerce")
+                        if pd.notna(dt_value):
+                            timeline_points.append((event_name, dt_value))
 
-                            aggregated = (
-                                filtered_df
-                                .set_index(selected_date_col)
-                                .groupby([pd.Grouper(freq=freq_map[freq_label]), "veracity_group"])
-                                .size()
-                                .reset_index(name="Sample_Count")
-                                .sort_values(selected_date_col)
-                            )
+                if not timeline_points:
+                    return None, []
 
-                            if aggregated.empty:
-                                st.warning("Aggregation produced no results. Try a different frequency or category selection.")
-                            else:
-                                pivot_table = aggregated.pivot_table(
-                                    index=selected_date_col,
-                                    columns="veracity_group",
-                                    values="Sample_Count",
-                                    fill_value=0
-                                ).reset_index()
+                timeline_points.sort(key=lambda item: item[1])
+                y_positions = [0] * len(timeline_points)
+                mode = "markers" if len(timeline_points) == 1 else "lines+markers"
+                fig = go.Figure()
+                fig.add_trace(
+                    go.Scatter(
+                        x=[point[1] for point in timeline_points],
+                        y=y_positions,
+                        mode=mode,
+                        marker=dict(size=12),
+                        line=dict(color="#636EFA"),
+                        text=[point[0] for point in timeline_points],
+                        hovertemplate="%{text}<br>%{x|%Y-%m-%d}<extra></extra>",
+                    )
+                )
+                fig.update_layout(
+                    title="Timeline",
+                    showlegend=False,
+                    xaxis_title="Date",
+                    yaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
+                    margin=dict(l=40, r=20, t=60, b=40),
+                )
+                return fig, timeline_points
 
-                                fig_veracity = px.line(
-                                    pivot_table,
-                                    x=selected_date_col,
-                                    y=[col for col in pivot_table.columns if col != selected_date_col],
-                                    markers=True,
-                                    title="Temporal Comparison of Real vs Fake News Samples"
+            def render_sample(column, sample_series, label_name):
+                with column:
+                    st.subheader(label_name)
+                    if sample_series is None:
+                        st.info(
+                            "Use the sampling buttons in the sidebar to populate this sample."
+                        )
+                        return
+
+                    st.markdown("**Basic Info**")
+                    st.markdown(f"**Title:** {format_field(sample_series.get('Title'))}")
+                    st.markdown(f"**Paper Record ID:** {format_field(sample_series.get('Record ID'))}")
+                    st.markdown(
+                        f"**Mention Title:** {format_field(sample_series.get('Mention Title'))}"
+                    )
+                    st.markdown(
+                        f"**Mention Date:** {format_field(sample_series.get('MentionDate_iso'))}"
+                    )
+                    mention_url = format_field(sample_series.get('Mention URL'))
+                    if mention_url != "—" and mention_url.lower().startswith("http"):
+                        st.markdown(f"**Mention URL:** [{mention_url}]({mention_url})")
+                    else:
+                        st.markdown("**Mention URL:** —")
+
+                    st.markdown("**Paper Identifiers & Dates**")
+                    st.markdown(
+                        f"**Original DOI:** {format_field(sample_series.get('OriginalPaperDOI'))}"
+                    )
+                    st.markdown(
+                        f"**Original Date:** {format_field(sample_series.get('OriginalDate_iso'))}"
+                    )
+                    st.markdown(
+                        f"**Retraction DOI:** {format_field(sample_series.get('RetractionDOI'))}"
+                    )
+                    st.markdown(
+                        f"**Retraction Date:** {format_field(sample_series.get('RetractionDate_iso'))}"
+                    )
+
+                    timeline_fig, timeline_points = build_timeline(sample_series)
+                    if timeline_fig:
+                        st.plotly_chart(timeline_fig, use_container_width=True)
+                        if timeline_points:
+                            st.markdown("**Event Order**")
+                            for event_name, point in timeline_points:
+                                st.markdown(
+                                    f"- {event_name}: {point.strftime('%Y-%m-%d')}"
                                 )
-                                fig_veracity.update_layout(legend_title="News Category")
-                                st.plotly_chart(fig_veracity, use_container_width=True)
+                    else:
+                        st.info("No temporal events with valid dates for this sample.")
 
-                                st.subheader("Aggregated Sample Counts")
-                                st.dataframe(aggregated, use_container_width=True)
+                    st.markdown("**Label Metadata**")
+                    st.markdown(f"**Label:** {format_field(sample_series.get('label'))}")
+                    st.markdown(
+                        f"**Mention Source:** {format_field(sample_series.get('mention_source'))}"
+                    )
+                    st.markdown(
+                        f"**Outlet or Author:** {format_field(sample_series.get('Outlet or Author'))}"
+                    )
 
-                                st.caption(
-                                    "The chart compares the number of sampled real and fake news items over time. "
-                                    "Adjust the frequency or category selections to explore different perspectives."
-                                )
+            col_true, col_false = st.columns(2)
+            render_sample(col_true, true_sample, "TRUE Sample")
+            render_sample(col_false, false_sample, "FALSE Sample")
 
 else:
     st.info("Click 'Load Data' in the sidebar to start analyzing your data.")
