@@ -901,13 +901,22 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
                 timeline_points.sort(key=lambda item: item[1])
                 y_positions = [0] * len(timeline_points)
                 mode = "markers" if len(timeline_points) == 1 else "lines+markers"
+                color_map = {
+                    "Original Publication": "#1f77b4",
+                    "Retraction": "#ff7f0e",
+                    "Mention": "#2ca02c",
+                }
+                marker_colors = [
+                    color_map.get(point[0], "#636EFA") for point in timeline_points
+                ]
+
                 fig = go.Figure()
                 fig.add_trace(
                     go.Scatter(
                         x=[point[1] for point in timeline_points],
                         y=y_positions,
                         mode=mode,
-                        marker=dict(size=12),
+                        marker=dict(size=12, color=marker_colors),
                         line=dict(color="#636EFA"),
                         text=[point[0] for point in timeline_points],
                         hovertemplate="%{text}<br>%{x|%Y-%m-%d}<extra></extra>",
