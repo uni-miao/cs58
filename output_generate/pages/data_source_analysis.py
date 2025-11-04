@@ -170,9 +170,9 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
     is_paper_domain_pairs = 'Domain' in df_results.columns and 'Has_Original' in df_results.columns
     
     # Create tabs for Data Source Analysis
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "Overview", "Domain Analysis", "Paper-Domain Relationships", 
-        "Overlap Analysis", "Data Table"
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "Overview", "Domain Analysis", "Paper-Domain Relationships",
+        "Overlap Analysis", "Data Table", "Veracity Time Series"
     ])
     
     with tab1:
@@ -692,17 +692,17 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
     
     with tab5:
         st.header("Data Table")
-        
+
         # Show current dataset
         st.subheader("Current Dataset")
         st.dataframe(df_results, use_container_width=True, height=400)
-        
+
         # Option to load paper_domain_pairs
         if df_paper_domain_pairs is not None and not is_paper_domain_pairs:
             st.subheader("Paper-Domain Pairs Dataset")
             with st.expander("View Paper-Domain Pairs Data", expanded=False):
                 st.dataframe(df_paper_domain_pairs, use_container_width=True, height=300)
-                
+
         # Download option
         csv = df_results.to_csv(index=False)
         st.download_button(
@@ -711,6 +711,181 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
             file_name="data_source_analysis.csv",
             mime="text/csv"
         )
+
+    with tab6:
+        st.header("Temporal Real vs Fake News Comparison")
+        st.write(
+            "Analyze how real and fake news samples evolve over time by selecting a date "
+            "column and a veracity label column from the loaded dataset."
+        )
+
+        working_df = df_results.copy()
+
+        # Identify potential date columns and convert parsable ones to datetime
+        potential_date_columns = []
+        for col in working_df.columns:
+            col_lower = col.lower()
+            if pd.api.types.is_datetime64_any_dtype(working_df[col]):
+                potential_date_columns.append(col)
+                continue
+            if any(keyword in col_lower for keyword in ["date", "time", "timestamp", "year"]):
+                parsed_series = pd.to_datetime(working_df[col], errors="coerce")
+                if parsed_series.notna().sum() > 0:
+                    working_df[col] = parsed_series
+                    potential_date_columns.append(col)
+
+        if not potential_date_columns:
+            st.info(
+                "No date-like columns detected automatically. Add a date column to the dataset to "
+                "unlock temporal comparisons."
+            )
+            selected_date_col = None
+        else:
+            selected_date_col = st.selectbox(
+                "Select the date or time column", potential_date_columns, index=0
+            )
+
+        # Identify candidate columns that can represent veracity labels
+        veracity_label_keywords = [
+            "veracity", "label", "truth", "fake", "real", "type", "category",
+            "source", "status", "retraction", "original"
+        ]
+        potential_label_columns = []
+        for col in working_df.columns:
+            if pd.api.types.is_categorical_dtype(working_df[col]) or working_df[col].dtype == object:
+                unique_values = working_df[col].dropna().unique()
+                if len(unique_values) <= 30:
+                    potential_label_columns.append(col)
+                elif any(keyword in col.lower() for keyword in veracity_label_keywords):
+                    potential_label_columns.append(col)
+
+        if not potential_label_columns:
+            st.info(
+                "No categorical columns suitable for veracity labels were detected. "
+                "Consider adding a column that distinguishes real and fake news samples."
+            )
+            selected_label_col = None
+        else:
+            selected_label_col = st.selectbox(
+                "Select the veracity label column", potential_label_columns, index=0
+            )
+
+        if selected_date_col and selected_label_col:
+            filtered_df = working_df[[selected_date_col, selected_label_col]].dropna(subset=[selected_date_col])
+
+            if filtered_df.empty:
+                st.warning("No records available after filtering for the selected columns.")
+            else:
+                unique_values = filtered_df[selected_label_col].dropna().unique().tolist()
+                value_display_map = {str(value): value for value in unique_values}
+
+                def infer_default_bucket(value: str) -> str:
+                    lower_value = value.lower()
+                    real_keywords = ["real", "true", "original", "verified", "authentic", "legit"]
+                    fake_keywords = [
+                        "fake", "false", "rumor", "misinfo", "disinfo", "hoax", "retraction",
+                        "debunked"
+                    ]
+                    if any(keyword in lower_value for keyword in real_keywords):
+                        return "Real"
+                    if any(keyword in lower_value for keyword in fake_keywords):
+                        return "Fake"
+                    return "Other"
+
+                default_real = [
+                    display for display in value_display_map
+                    if infer_default_bucket(display) == "Real"
+                ]
+                default_fake = [
+                    display for display in value_display_map
+                    if infer_default_bucket(display) == "Fake"
+                ]
+
+                col_real, col_fake = st.columns(2)
+                selected_real_display = col_real.multiselect(
+                    "Values representing REAL news", list(value_display_map.keys()), default=default_real
+                )
+                selected_fake_display = col_fake.multiselect(
+                    "Values representing FAKE news", list(value_display_map.keys()), default=default_fake
+                )
+
+                selected_real_values = [value_display_map[val] for val in selected_real_display]
+                selected_fake_values = [value_display_map[val] for val in selected_fake_display]
+
+                if not selected_real_values and not selected_fake_values:
+                    st.warning(
+                        "Select at least one value for either the real or fake news category to build the comparison."
+                    )
+                else:
+                    filtered_df = filtered_df[filtered_df[selected_label_col].isin(
+                        selected_real_values + selected_fake_values
+                    )]
+
+                    if filtered_df.empty:
+                        st.warning("No data matches the selected real/fake categories.")
+                    else:
+                        freq_label = st.selectbox(
+                            "Aggregation frequency",
+                            ["Weekly", "Monthly", "Quarterly", "Yearly", "Daily"],
+                            index=1
+                        )
+                        freq_map = {
+                            "Daily": "D",
+                            "Weekly": "W",
+                            "Monthly": "M",
+                            "Quarterly": "Q",
+                            "Yearly": "Y"
+                        }
+
+                        filtered_df = filtered_df.copy()
+                        filtered_df[selected_date_col] = pd.to_datetime(
+                            filtered_df[selected_date_col], errors="coerce"
+                        )
+                        filtered_df = filtered_df.dropna(subset=[selected_date_col])
+
+                        if filtered_df.empty:
+                            st.warning("No valid date values remain after parsing the selected column.")
+                        else:
+                            filtered_df["veracity_group"] = filtered_df[selected_label_col].apply(
+                                lambda val: "Real News" if val in selected_real_values else "Fake News"
+                            )
+
+                            aggregated = (
+                                filtered_df
+                                .set_index(selected_date_col)
+                                .groupby([pd.Grouper(freq=freq_map[freq_label]), "veracity_group"])
+                                .size()
+                                .reset_index(name="Sample_Count")
+                                .sort_values(selected_date_col)
+                            )
+
+                            if aggregated.empty:
+                                st.warning("Aggregation produced no results. Try a different frequency or category selection.")
+                            else:
+                                pivot_table = aggregated.pivot_table(
+                                    index=selected_date_col,
+                                    columns="veracity_group",
+                                    values="Sample_Count",
+                                    fill_value=0
+                                ).reset_index()
+
+                                fig_veracity = px.line(
+                                    pivot_table,
+                                    x=selected_date_col,
+                                    y=[col for col in pivot_table.columns if col != selected_date_col],
+                                    markers=True,
+                                    title="Temporal Comparison of Real vs Fake News Samples"
+                                )
+                                fig_veracity.update_layout(legend_title="News Category")
+                                st.plotly_chart(fig_veracity, use_container_width=True)
+
+                                st.subheader("Aggregated Sample Counts")
+                                st.dataframe(aggregated, use_container_width=True)
+
+                                st.caption(
+                                    "The chart compares the number of sampled real and fake news items over time. "
+                                    "Adjust the frequency or category selections to explore different perspectives."
+                                )
 
 else:
     st.info("Click 'Load Data' in the sidebar to start analyzing your data.")
