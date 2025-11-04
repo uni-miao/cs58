@@ -1,0 +1,172 @@
+{
+  "avg_sentence_length": {
+    "abstract_mean": 13.582530710720526,
+    "retraction_mean": 14.364447525980282,
+    "mean_difference": -0.7819168152597555,
+    "abstract_std": 8.159512834864433,
+    "retraction_std": 25.30119664109971,
+    "t_statistic": -7.109355096589344,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "avg_word_length": {
+    "abstract_mean": 7.3003752959896735,
+    "retraction_mean": 7.117716641169808,
+    "mean_difference": 0.18265865481986587,
+    "abstract_std": 0.9613762258328982,
+    "retraction_std": 1.5110143465941925,
+    "t_statistic": 24.27137436832429,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "type_token_ratio": {
+    "abstract_mean": 0.72776671378224,
+    "retraction_mean": 0.7875284674840548,
+    "mean_difference": -0.0597617537018148,
+    "abstract_std": 0.15036524281611596,
+    "retraction_std": 0.18788215101320693,
+    "t_statistic": -58.62678628745497,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "noun_ratio": {
+    "abstract_mean": 0.5770631641951284,
+    "retraction_mean": 0.5963846588254664,
+    "mean_difference": -0.019321494630338054,
+    "abstract_std": 0.1057175204008698,
+    "retraction_std": 0.12941616954233223,
+    "t_statistic": -27.27487606530941,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "verb_ratio": {
+    "abstract_mean": 0.18920285119929978,
+    "retraction_mean": 0.20684213084191258,
+    "mean_difference": -0.017639279642612804,
+    "abstract_std": 0.09654927258951565,
+    "retraction_std": 0.07677907560831904,
+    "t_statistic": -33.18836594182427,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "adj_ratio": {
+    "abstract_mean": 0.1715651370476011,
+    "retraction_mean": 0.12941824408464897,
+    "mean_difference": 0.042146892962952126,
+    "abstract_std": 0.07260112977286239,
+    "retraction_std": 0.06368166055394257,
+    "t_statistic": 101.65591481773994,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "passive_voice_ratio": {
+    "abstract_mean": 0.1842446704963038,
+    "retraction_mean": 0.10810069327398535,
+    "mean_difference": 0.07614397722231846,
+    "abstract_std": 0.18963706306794673,
+    "retraction_std": 0.14480802153888414,
+    "t_statistic": 73.96107764709419,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "flesch_reading_ease": {
+    "abstract_mean": 23.397185503624986,
+    "retraction_mean": 24.357731444222026,
+    "mean_difference": -0.96054594059704,
+    "abstract_std": 246.2753653174466,
+    "retraction_std": 47.91071393273455,
+    "t_statistic": -0.8660172401079754,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "flesch_kincaid_grade": {
+    "abstract_mean": 14.935660812095193,
+    "retraction_mean": 15.321476403264983,
+    "mean_difference": -0.3858155911697896,
+    "abstract_std": 34.50473888088307,
+    "retraction_std": 18.329054289195813,
+    "t_statistic": -2.263578643938673,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "smog_index": {
+    "abstract_mean": 15.760062305928471,
+    "retraction_mean": 15.474304616718477,
+    "mean_difference": 0.2857576892099942,
+    "abstract_std": 3.6405734905811937,
+    "retraction_std": 4.683404558238942,
+    "t_statistic": 11.384492784457573,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "assertive_word_count": {
+    "abstract_mean": 0.33326784802168874,
+    "retraction_mean": 0.2869421599029257,
+    "mean_difference": 0.04632568811876303,
+    "abstract_std": 0.6686936664474736,
+    "retraction_std": 0.5338862353247147,
+    "t_statistic": 12.567228545840031,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "hedging_word_count": {
+    "abstract_mean": 0.5750854583316962,
+    "retraction_mean": 0.2517527302143724,
+    "mean_difference": 0.32333272811732383,
+    "abstract_std": 1.1095698403035799,
+    "retraction_std": 0.8187500798171574,
+    "t_statistic": 54.27909101053496,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "negation_count": {
+    "abstract_mean": 0.14527916388354092,
+    "retraction_mean": 0.08044020493460968,
+    "mean_difference": 0.06483895894893124,
+    "abstract_std": 0.4806762903839042,
+    "retraction_std": 0.33008878540486136,
+    "t_statistic": 25.679234888215248,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "modal_word_count": {
+    "abstract_mean": 0.45306667714431653,
+    "retraction_mean": 0.22445058649049482,
+    "mean_difference": 0.2286160906538217,
+    "abstract_std": 0.9232057837294809,
+    "retraction_std": 0.605900136821612,
+    "t_statistic": 47.7412416972456,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "sentiment_score": {
+    "abstract_mean": 0.24231099170955953,
+    "retraction_mean": 0.266586900026965,
+    "mean_difference": -0.024275908317405476,
+    "abstract_std": 0.6859596069854788,
+    "retraction_std": 0.5902669424862379,
+    "t_statistic": -6.243926445651641,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "subjectivity_score": {
+    "abstract_mean": 0.12021252603041138,
+    "retraction_mean": 0.11042662127544829,
+    "mean_difference": 0.00978590475496309,
+    "abstract_std": 0.07074100366328481,
+    "retraction_std": 0.06998111393482771,
+    "t_statistic": 23.011442187587967,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  },
+  "information_density": {
+    "abstract_mean": 0.5770631641951284,
+    "retraction_mean": 0.5963846588254664,
+    "mean_difference": -0.019321494630338054,
+    "abstract_std": 0.1057175204008698,
+    "retraction_std": 0.12941616954233223,
+    "t_statistic": -27.27487606530941,
+    "abstract_count": 50902,
+    "retraction_count": 59336
+  }
+}
