@@ -48,7 +48,9 @@ except NameError:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.dirname(current_dir)  # Go up one level from pages/
     datasets_dir = os.path.join(parent_dir, "datasets")
-default_csv = os.path.join(datasets_dir, "paper_level_summary.csv")
+# Updated to use altmetric_source_data subfolder
+altmetric_data_dir = os.path.join(datasets_dir, "altmetric_source_data")
+default_csv = os.path.join(altmetric_data_dir, "paper_level_summary.csv")
 
 csv_path = st.sidebar.text_input("Dataset Path", value=default_csv)
 
@@ -101,7 +103,8 @@ else:
         load_source = 'source'
 
 # Load additional dataset if available (datasets_dir already points to parent/datasets)
-paper_domain_pairs_path = os.path.join(datasets_dir, "paper_domain_pairs.csv")
+# Updated to use altmetric_source_data subfolder (altmetric_data_dir already defined above)
+paper_domain_pairs_path = os.path.join(altmetric_data_dir, "paper_domain_pairs.csv")
 df_paper_domain_pairs = None
 if os.path.exists(paper_domain_pairs_path):
     try:
@@ -110,7 +113,7 @@ if os.path.exists(paper_domain_pairs_path):
         pass
 
 # Load paper_level_summary to get DOI information
-paper_level_summary_path = os.path.join(datasets_dir, "paper_level_summary.csv")
+paper_level_summary_path = os.path.join(altmetric_data_dir, "paper_level_summary.csv")
 df_paper_summary = None
 if os.path.exists(paper_level_summary_path):
     try:

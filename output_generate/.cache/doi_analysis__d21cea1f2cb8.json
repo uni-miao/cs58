@@ -1,0 +1,9 @@
+{
+  "file_path": "/Users/miaoyixuan/Documents/GitHub/cs58/output_generate/datasets/paper_level_summary.csv",
+  "file_signature": "d21cea1f2cb8",
+  "source_mtime": 1761990065.2990377,
+  "source_size": 805885,
+  "cached_at": 1762254914.001159,
+  "record_count": 6172,
+  "cache_format": "parquet"
+}

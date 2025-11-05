@@ -27,6 +27,8 @@ elif current_page == 'style':
     st.set_page_config(page_title="Altmetric News Analysis Dashboard", layout="wide", page_icon="📝")
 elif current_page == 'abstract_retraction':
     st.set_page_config(page_title="Abstract & Retraction Analysis Dashboard", layout="wide", page_icon="📊")
+elif current_page == 'retraction_consistency':
+    st.set_page_config(page_title="Retraction Consistency Analysis Dashboard", layout="wide", page_icon="🔍")
 elif current_page == 'summary':
     st.set_page_config(page_title="Summary", layout="wide", page_icon="🧭")
 else:
@@ -39,6 +41,7 @@ page_themes = {
     'source': '📈 Altmetric Source Analysis',
     'style': '📝 Altmetric News Analysis',
     'abstract_retraction': '📊 Abstract & Retraction Analysis',
+    'retraction_consistency': '🔍 Retraction Consistency Analysis',
     'summary': '🧭 Summary'
 }
 
@@ -51,8 +54,13 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("**Navigation**")
 
 # Add custom CSS for navigation boxes - style buttons to look like boxes
-st.sidebar.markdown("""
+st.markdown("""
 <style>
+    /* Hide Streamlit's default multi-page navigation menu */
+    [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
+    
     /* Style all navigation buttons as boxes */
     div[data-testid="stSidebar"] button[data-testid*="baseButton-secondary"] {
         width: 100%;
@@ -85,10 +93,11 @@ st.sidebar.markdown("""
 # Create navigation options
 nav_options = [
     ("home", "Home"),
+    ("abstract_retraction", "Abstract & Retraction Analysis"),
+    ("retraction_consistency", "Retraction Consistency Analysis"),
     ("image", "Image Analysis"),
     ("source", "Altmetric Source Analysis"),
     ("style", "Altmetric News Analysis"),
-    ("abstract_retraction", "Abstract & Retraction Analysis"),
     ("summary", "Summary")
 ]
 
@@ -165,9 +174,25 @@ elif current_page == 'abstract_retraction':
         code = f.read()
         # Simple removal of page config comment and title line
         code = code.replace('# Page config is set by parent interactive_dashboard.py\n# No need to set it here to avoid conflicts\n\n', '')
-        code = code.replace('st.title("📊 Abstract & Retraction Analysis Dashboard")', '', 1)  # Remove only first occurrence
+        # Remove both possible title variations
+        code = code.replace('st.title("📊 Abstract & Retraction Notice Analysis Dashboard")', '', 1)  # Remove first occurrence
+        code = code.replace('st.title("📊 Abstract & Retraction Analysis Dashboard")', '', 1)  # Remove first occurrence
         # Inject datasets_dir into exec context
         exec_globals = {'__file__': abstract_retraction_analysis_path, 'DATASETS_DIR': datasets_dir}
+        exec(code, exec_globals)
+
+elif current_page == 'retraction_consistency':
+    st.title("🔍 Retraction Consistency Analysis Dashboard")
+    # Import and run retraction consistency analysis with UTF-8 encoding
+    pages_dir = os.path.join(base_dir, 'pages')
+    retraction_consistency_analysis_path = os.path.join(pages_dir, 'retraction_consistency_analysis.py')
+    with open(retraction_consistency_analysis_path, encoding='utf-8') as f:
+        code = f.read()
+        # Simple removal of page config comment and title line
+        code = code.replace('# Page config is set by parent interactive_dashboard.py\n# No need to set it here to avoid conflicts\n\n', '')
+        code = code.replace('st.title("🔍 Retraction Consistency Analysis Dashboard")', '', 1)  # Remove first occurrence
+        # Inject datasets_dir into exec context
+        exec_globals = {'__file__': retraction_consistency_analysis_path, 'DATASETS_DIR': datasets_dir}
         exec(code, exec_globals)
     
 elif current_page == 'summary':
@@ -218,6 +243,12 @@ else:
     - Retraction-specific: reasons, responsibility, template similarity
     - Statistical significance testing with t-statistics
     
+    **🔍 Retraction Consistency Analysis**
+    - Before vs after retraction comparison analysis
+    - Semantic similarity and entity overlap analysis
+    - Reason consistency and sentiment analysis
+    - Multi-dimensional consistency pattern exploration
+    
     ### Features:
     - ⚡ **Fast Loading**: Automatic caching for instant data access
     - 🔄 **Auto-reload**: Smart cache invalidation when data changes
@@ -236,7 +267,7 @@ else:
     """)
     
     # Quick start cards
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.info("""
@@ -278,6 +309,17 @@ else:
         - Abstract-specific features
         - Retraction-specific features
         - Statistical significance testing
+        """)
+    
+    with col5:
+        st.info("""
+        **🔍 Retraction Consistency Analysis**
+        
+        Perfect for analyzing consistency patterns:
+        - Before vs after retraction comparison
+        - Semantic similarity analysis
+        - Entity overlap patterns
+        - Sentiment consistency tracking
         """)
 
 # Add footer

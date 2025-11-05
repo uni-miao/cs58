@@ -242,10 +242,12 @@ def precompute_all_default_datasets():
     datasets_dir = os.path.join(current_dir, "datasets")
     
     print(f"📋 Precomputing all default datasets...\n")
+    # Updated to use altmetric_source_data subfolder for altmetric datasets
+    altmetric_data_dir = os.path.join(datasets_dir, "altmetric_source_data")
     default_files = [
         os.path.join(datasets_dir, "enhanced_doi_analysis_v3_summary.csv"),
-        os.path.join(datasets_dir, "paper_level_summary.csv"),
-        os.path.join(datasets_dir, "paper_domain_pairs.csv"),
+        os.path.join(altmetric_data_dir, "paper_level_summary.csv"),
+        os.path.join(altmetric_data_dir, "paper_domain_pairs.csv"),
         os.path.join(datasets_dir, "style_features_data.csv"),
         os.path.join(datasets_dir, "abstract_retractionNotice", "abstract_features.csv"),
         os.path.join(datasets_dir, "abstract_retractionNotice", "retraction_features.csv"),
