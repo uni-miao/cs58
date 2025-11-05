@@ -122,7 +122,7 @@ if os.path.exists(paper_level_summary_path):
         pass
 
 # Load temporal mentions dataset for veracity timeline sampling
-temporal_mentions_path = os.path.join(datasets_dir, "temporal_mentions_joined.csv")
+temporal_mentions_path = os.path.join(altmetric_data_dir, "temporal_mentions_joined.csv")
 temporal_mentions_df = None
 if os.path.exists(temporal_mentions_path):
     try:
