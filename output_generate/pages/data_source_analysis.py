@@ -141,11 +141,15 @@ if "temporal_veracity_true_sample" not in st.session_state:
 if "temporal_veracity_false_sample" not in st.session_state:
     st.session_state["temporal_veracity_false_sample"] = None
 
-# Sidebar controls for temporal veracity timeline sampling
-st.sidebar.markdown("---")
-st.sidebar.subheader("Temporal Veracity (Timeline)")
-
-TRUE_LABEL_OPTIONS = ["ANY", "O_BEFORE", "R_AFTER"]
+# Temporal veracity label configuration
+TRUE_LABEL_OPTIONS = [
+    "ANY",
+    "O_BEFORE",
+    "R_AFTER",
+    "R_BEFORE_COMENTION",
+    "R_BEFORE_EXCL_NORM",
+    "R_BEFORE_EXCL_ABNORM",
+]
 FALSE_LABEL_OPTIONS = [
     "ANY",
     "O_AFTER_COMENTION",
@@ -154,30 +158,6 @@ FALSE_LABEL_OPTIONS = [
 ]
 TRUE_LABEL_SET = TRUE_LABEL_OPTIONS[1:]
 FALSE_LABEL_SET = FALSE_LABEL_OPTIONS[1:]
-
-temporal_true_label = st.sidebar.selectbox(
-    "TRUE Label",
-    TRUE_LABEL_OPTIONS,
-    index=0,
-    key="temporal_true_label_filter",
-)
-
-temporal_false_label = st.sidebar.selectbox(
-    "FALSE Label",
-    FALSE_LABEL_OPTIONS,
-    index=0,
-    key="temporal_false_label_filter",
-)
-
-temporal_seed_text = st.sidebar.text_input(
-    "Seed (optional, integer)",
-    value="",
-    key="temporal_seed_text",
-)
-
-temporal_button_col1, temporal_button_col2 = st.sidebar.columns(2)
-trigger_sample_with_seed = temporal_button_col1.button("Sample with Seed")
-trigger_sample_random = temporal_button_col2.button("Sample Random")
 
 # Load data
 if should_load:
@@ -791,6 +771,30 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
                 "Please verify the CSV schema."
             )
         else:
+            control_col_true, control_col_false = st.columns(2)
+            temporal_true_label = control_col_true.selectbox(
+                "TRUE Label",
+                TRUE_LABEL_OPTIONS,
+                index=0,
+                key="temporal_true_label_filter",
+            )
+            temporal_false_label = control_col_false.selectbox(
+                "FALSE Label",
+                FALSE_LABEL_OPTIONS,
+                index=0,
+                key="temporal_false_label_filter",
+            )
+
+            temporal_seed_text = st.text_input(
+                "Seed (optional, integer)",
+                value="",
+                key="temporal_seed_text",
+            )
+
+            button_col_seed, button_col_random = st.columns(2)
+            trigger_sample_with_seed = button_col_seed.button("Sample with Seed")
+            trigger_sample_random = button_col_random.button("Sample Random")
+
             true_labels_filter = TRUE_LABEL_SET if temporal_true_label == "ANY" else [temporal_true_label]
             false_labels_filter = (
                 FALSE_LABEL_SET if temporal_false_label == "ANY" else [temporal_false_label]
@@ -859,12 +863,6 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
             ):
                 false_sample = None
                 st.session_state["temporal_veracity_false_sample"] = None
-
-            st.caption(
-                "Filters — TRUE: {} | FALSE: {}".format(
-                    ", ".join(true_labels_filter), ", ".join(false_labels_filter)
-                )
-            )
 
             def format_field(value):
                 if isinstance(value, pd.Timestamp):
@@ -936,7 +934,7 @@ if 'df_results' in st.session_state and st.session_state['df_results'] is not No
                     st.subheader(label_name)
                     if sample_series is None:
                         st.info(
-                            "Use the sampling buttons in the sidebar to populate this sample."
+                            "Use the sampling controls above to populate this sample."
                         )
                         return
 
