@@ -1,9 +1,0 @@
-{
-  "file_path": "E:\\work\\25\\COMP5703\\CS58-2-2025-S2\\CrawlData_TextProcessing_Chengyi\\output_generate\\datasets\\enhanced_doi_analysis_v3_summary.csv",
-  "file_signature": "5381ec0a1a7d",
-  "source_mtime": 1761754800.131431,
-  "source_size": 143250,
-  "cached_at": 1761756933.717589,
-  "record_count": 643,
-  "cache_format": "parquet"
-}

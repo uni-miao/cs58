@@ -1,9 +1,0 @@
-{
-  "file_path": "E:\\work\\25\\COMP5703\\CS58-2-2025-S2\\CrawlData_TextProcessing_Chengyi\\output_generate\\datasets\\abstract_retractionNotice\\abstract_features.csv",
-  "file_signature": "d0174331650d",
-  "source_mtime": 1762232417.8947513,
-  "source_size": 22239329,
-  "cached_at": 1762233847.9666805,
-  "record_count": 50902,
-  "cache_format": "parquet"
-}
